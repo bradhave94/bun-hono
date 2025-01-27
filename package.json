@@ -1,0 +1,23 @@
+{
+  "name": "bun-hono-api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^0.9.6",
+    "@scalar/hono-api-reference": "^0.4.0",
+    "hono": "^4.6.18",
+    "pino": "^8.17.1",
+    "pino-pretty": "^10.3.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "bun-types": "^1.0.21",
+    "typescript": "^5.3.3"
+  }
+}
