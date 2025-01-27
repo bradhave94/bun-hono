@@ -1,7 +1,7 @@
 import { Context, Next } from 'hono';
+import type { StatusCode } from 'hono/utils/http-status';
 import { env } from '../env';
 import { logger } from '../logger';
-import { ApiException } from '../types/api';
 
 interface RateLimit {
   count: number;
@@ -40,12 +40,17 @@ export async function rateLimitMiddleware(c: Context, next: Next) {
   // Check if rate limit exceeded
   if (rateLimit.count > env.RATE_LIMIT_MAX) {
     logger.warn({ ip, count: rateLimit.count }, 'Rate limit exceeded');
-    throw new ApiException(
-      'RATE_LIMIT_EXCEEDED',
-      'Too many requests',
-      429,
-      { resetAt: rateLimit.resetAt }
-    );
+
+    // Add rate limit headers
+    c.header('X-RateLimit-Limit', env.RATE_LIMIT_MAX.toString());
+    c.header('X-RateLimit-Remaining', '0');
+    c.header('X-RateLimit-Reset', rateLimit.resetAt.toString());
+
+    c.status(429 as StatusCode);
+    return c.json({
+      message: 'Too many requests',
+      resetAt: rateLimit.resetAt
+    });
   }
 
   // Update rate limit in store

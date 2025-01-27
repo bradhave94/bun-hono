@@ -1,5 +1,6 @@
 import { Context } from 'hono';
-import { ApiException } from '../../types/api';
+import { HTTPException } from 'hono/http-exception'
+import type { StatusCode } from 'hono/utils/http-status';
 import { Pokemon } from './pokemon.schema';
 
 const POKE_API_BASE = 'https://pokeapi.co/api/v2';
@@ -14,39 +15,52 @@ type PokemonListResponse = {
 export const handlers = {
   getPokemon: async (c: Context) => {
     const id = c.req.param('id');
-    
+
     try {
       const response = await fetch(`${POKE_API_BASE}/pokemon/${id}`);
-      
+
       if (!response.ok) {
-        throw new ApiException('POKEMON_NOT_FOUND', 'Pokemon not found', 404);
+        const status = response.status >= 100 && response.status < 600 ? response.status : 500;
+        c.status(status as StatusCode);
+        return c.json({
+          message: 'Pokemon not found'
+        });
       }
-      
+
       const pokemon: Pokemon = await response.json();
-      return c.json(pokemon, 200);
+      return c.json(pokemon);
     } catch (error) {
-      if (error instanceof ApiException) throw error;
-      throw new ApiException('POKEMON_FETCH_ERROR', 'Failed to fetch Pokemon data', 500);
+      c.status(500 as StatusCode);
+      return c.json({
+        message: 'Failed to fetch Pokemon data'
+      });
     }
   },
 
   listPokemon: async (c: Context) => {
     const limit = Number(c.req.query('limit') ?? '20');
     const offset = Number(c.req.query('offset') ?? '0');
-    
+
     try {
       const response = await fetch(
         `${POKE_API_BASE}/pokemon?limit=${limit}&offset=${offset}`
       );
-      
+
       if (!response.ok) {
-        throw new ApiException('POKEMON_LIST_ERROR', 'Failed to fetch Pokemon list', 500);
+        const status = response.status >= 100 && response.status < 600 ? response.status : 500;
+        c.status(status as StatusCode);
+        return c.json({
+          message: 'Failed to fetch Pokemon list'
+        });
       }
-      
+
       const data: PokemonListResponse = await response.json();
-      return c.json(data, 200);
+      return c.json(data);
     } catch (error) {
-      throw new ApiException('POKEMON_LIST_ERROR', 'Failed to fetch Pokemon list', 500);
+      c.status(500 as StatusCode);
+      return c.json({
+        message: 'Failed to fetch Pokemon list'
+      });
     }
   },
 };

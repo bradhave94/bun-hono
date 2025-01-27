@@ -1,11 +1,23 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, beforeEach } from 'bun:test';
 import { app } from '../../app';
 
 describe('Tasks API', () => {
+  let csrfToken: string;
+
+  beforeEach(async () => {
+    // Get a new CSRF token before each test
+    const res = await app.request('/api/v1/csrf');
+    const data = await res.json();
+    csrfToken = data.token;
+  });
+
   it('should create a new task', async () => {
     const res = await app.request('/api/v1/tasks', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken
+      },
       body: JSON.stringify({ title: 'Test task' }),
     });
 

@@ -1,18 +1,24 @@
 import type { Context } from 'hono';
-import { ApiException } from '../../types/api';
+import type { StatusCode } from 'hono/utils/http-status';
 import type { CreateTask, UpdateTask, Task } from './tasks.schema';
 import { CreateTaskSchema, UpdateTaskSchema } from './tasks.schema';
 import { logger } from '../../logger';
+import type { ZodError } from 'zod';
 
 // In-memory store for demo purposes
 const tasks = new Map<string, Task>();
 
-async function parseAndValidateBody<T>(c: Context, schema: any): Promise<T> {
+type ValidationError = {
+  message: string;
+  details?: { field: string; message: string; }[];
+};
+
+async function parseAndValidateBody<T>(c: Context, schema: any): Promise<T | ValidationError> {
   const contentType = c.req.header('content-type')?.toLowerCase() || '';
-  
+
   try {
     let body: any;
-    
+
     if (contentType.includes('application/json')) {
       body = await c.req.json();
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
@@ -29,37 +35,32 @@ async function parseAndValidateBody<T>(c: Context, schema: any): Promise<T> {
         })
       );
     } else {
-      throw new ApiException(
-        'INVALID_CONTENT_TYPE',
-        'Unsupported content type. Use application/json or application/x-www-form-urlencoded',
-        415
-      );
+      c.status(415 as StatusCode);
+      return {
+        message: 'Unsupported content type. Use application/json or application/x-www-form-urlencoded'
+      };
     }
 
     const result = schema.safeParse(body);
-    
+
     if (!result.success) {
-      throw new ApiException(
-        'VALIDATION_ERROR',
-        'Invalid request data',
-        400,
-        result.error.issues.map((issue: any) => ({
+      c.status(400 as StatusCode);
+      return {
+        message: 'Invalid request data',
+        details: (result.error as ZodError).issues.map(issue => ({
           field: issue.path.join('.'),
           message: issue.message
         }))
-      );
+      };
     }
 
     return result.data;
   } catch (error) {
-    if (error instanceof ApiException) throw error;
-    
     logger.error({ error, contentType }, 'Failed to parse request body');
-    throw new ApiException(
-      'INVALID_REQUEST_BODY',
-      'Could not parse request body',
-      400
-    );
+    c.status(400 as StatusCode);
+    return {
+      message: 'Could not parse request body'
+    };
   }
 }
 
@@ -76,7 +77,10 @@ export const handlers = {
 
     if (!task) {
       logger.warn({ taskId: id }, 'Task not found');
-      throw new ApiException('TASK_NOT_FOUND', 'Task not found', 404);
+      c.status(404 as StatusCode);
+      return c.json({
+        message: 'Task not found'
+      });
     }
 
     logger.debug({ taskId: id }, 'Returning task details');
@@ -85,6 +89,8 @@ export const handlers = {
 
   createTask: async (c: Context) => {
     const body = await parseAndValidateBody<CreateTask>(c, CreateTaskSchema);
+    if ('message' in body) return c.json(body); // Return error response if validation failed
+
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -98,17 +104,23 @@ export const handlers = {
 
     tasks.set(id, task);
     logger.info({ taskId: id, title: task.title }, 'Task created');
-    return c.json(task, 201);
+    c.status(201 as StatusCode);
+    return c.json(task);
   },
 
   updateTask: async (c: Context) => {
     const id = c.req.param('id');
     const body = await parseAndValidateBody<UpdateTask>(c, UpdateTaskSchema);
+    if ('message' in body) return c.json(body); // Return error response if validation failed
+
     const task = tasks.get(id);
 
     if (!task) {
       logger.warn({ taskId: id }, 'Task not found for update');
-      throw new ApiException('TASK_NOT_FOUND', 'Task not found', 404);
+      c.status(404 as StatusCode);
+      return c.json({
+        message: 'Task not found'
+      });
     }
 
     const updatedTask: Task = {
@@ -125,14 +137,18 @@ export const handlers = {
 
   deleteTask: async (c: Context) => {
     const id = c.req.param('id');
-    
+
     if (!tasks.has(id)) {
       logger.warn({ taskId: id }, 'Task not found for deletion');
-      throw new ApiException('TASK_NOT_FOUND', 'Task not found', 404);
+      c.status(404 as StatusCode);
+      return c.json({
+        message: 'Task not found'
+      });
     }
 
     tasks.delete(id);
     logger.info({ taskId: id }, 'Task deleted');
-    return new Response(null, { status: 204 });
+    c.status(204 as StatusCode);
+    return new Response(null);
   },
 };

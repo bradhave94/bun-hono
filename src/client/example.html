@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Client Example</title>
+    <script src="agent-client.js"></script>
+    <style>
+        .log {
+            font-family: monospace;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            background: #f5f5f5;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Client Example</h1>
+    <div id="output"></div>
+
+    <script>
+        // Helper function to log to page
+        function log(message, isError = false) {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = `log ${isError ? 'error' : ''}`;
+            div.textContent = typeof message === 'string' ? message : JSON.stringify(message, null, 2);
+            output.appendChild(div);
+            console.log(message);
+        }
+
+        // Initialize API client
+        const api = new ApiClient('http://localhost:3000');
+
+        async function runExample() {
+            try {
+                log('Initializing CSRF token...');
+                await api.init();
+                log('CSRF token initialized successfully');
+
+                log('Fetching tasks...');
+                const tasks = await api.request('/api/v1/tasks');
+                log(`Tasks received: ${JSON.stringify(tasks, null, 2)}`);
+
+                log('Creating new task...');
+                const newTask = await api.request('/api/v1/tasks', 'POST', {
+                    title: 'Test task'
+                });
+                log(`Task created: ${JSON.stringify(newTask, null, 2)}`);
+
+
+                log('Get Pokemon...');
+                const pokemon = await api.request('/api/v1/pokemon');
+                log(`Pokemon received: ${JSON.stringify(pokemon, null, 2)}`);
+
+
+                log('Refreshing CSRF token...');
+                await api.refresh();
+                log('CSRF token refreshed successfully');
+
+                log('Creating new task2...');
+                const newTask2 = await api.request('/api/v1/tasks', 'POST', {
+                    title: 'Test task 2'
+                });
+                log(`Task created: ${JSON.stringify(newTask2, null, 2)}`);
+
+
+
+
+            } catch (error) {
+                log(`Error: ${error.message}`, true);
+            }
+        }
+
+        // Run example once when page loads
+        window.addEventListener('load', () => {
+            log('Starting API example...');
+            runExample().catch(error => {
+                log(`Fatal error: ${error.message}`, true);
+            });
+        });
+    </script>
+</body>
+</html>
