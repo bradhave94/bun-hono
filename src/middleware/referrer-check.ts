@@ -4,6 +4,11 @@ import { logger } from '../logger';
 import { env } from '../env';
 
 export async function referrerCheckMiddleware(c: Context, next: Next) {
+  // Skip check for documentation endpoint
+  if (c.req.path === '/docs' || c.req.path === '/openapi.json') {
+    return next();
+  }
+
   // Skip check in development or test environment
   if (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') {
     return next();
@@ -24,7 +29,7 @@ export async function referrerCheckMiddleware(c: Context, next: Next) {
 
     c.status(403 as StatusCode);
     return c.json({
-      message: 'Access denied - missing referrer'
+      message: 'Access denied'
     });
   }
 
@@ -52,7 +57,7 @@ export async function referrerCheckMiddleware(c: Context, next: Next) {
 
       c.status(403 as StatusCode);
       return c.json({
-        message: 'Access denied - invalid referrer'
+        message: 'Access denied'
       });
     }
 
@@ -73,7 +78,7 @@ export async function referrerCheckMiddleware(c: Context, next: Next) {
 
     c.status(403 as StatusCode);
     return c.json({
-      message: 'Access denied - invalid referrer format'
+      message: 'Access denied'
     });
   }
 }
